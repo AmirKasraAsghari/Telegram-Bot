@@ -14,9 +14,8 @@ from typing import Optional
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart, CommandObject
-from aiogram.fsm.context import FSMContext
 
-from .config import Settings, load_deny_countries
+from .config import load_deny_countries
 from .hyperliquid import build_order_json
 
 
@@ -29,7 +28,6 @@ async def start_handler(message: types.Message, command: CommandObject) -> None:
     Greets the user and checks geofence restrictions. If the user’s IP
     originates from a denied country, they are blocked from further use.
     """
-    settings = Settings()
     deny_countries = set(load_deny_countries())
     # In production, you would extract the user's country from an IP lookup.
     # During testing we mock this as always allowed.
@@ -94,6 +92,30 @@ async def buy_sell_handler(message: types.Message, side: str) -> None:
     )
 
 
+async def positions_handler(message: types.Message) -> None:
+    """Handle the /positions command.
+
+    For now this returns a placeholder response indicating that the user has no
+    open positions. In production the bot would query Hyperliquid for the
+    account's current positions.
+    """
+    await message.answer("You currently have no open positions.")
+
+
+async def cancel_handler(message: types.Message) -> None:
+    """Handle the /cancel command.
+
+    The command optionally accepts an order identifier; the current
+    implementation only echoes back a confirmation message and does not perform
+    any API calls.
+    """
+    parts = message.text.strip().split(maxsplit=1)
+    if len(parts) > 1:
+        await message.answer(f"Cancelled order {parts[1]}.")
+    else:
+        await message.answer("Cancelled all open orders.")
+
+
 async def setup_bot(bot: Bot, dispatcher: Dispatcher) -> None:
     """Register handlers with the dispatcher.
 
@@ -111,3 +133,6 @@ async def setup_bot(bot: Bot, dispatcher: Dispatcher) -> None:
         await buy_sell_handler(message, "sell")
     dispatcher.message.register(buy_wrapper, commands={"buy"})
     dispatcher.message.register(sell_wrapper, commands={"sell"})
+    # Positions and cancel commands
+    dispatcher.message.register(positions_handler, commands={"positions"})
+    dispatcher.message.register(cancel_handler, commands={"cancel"})

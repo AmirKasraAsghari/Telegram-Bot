@@ -4,7 +4,6 @@ This module verifies that `build_order_json` correctly constructs payloads
 according to provided parameters and respects zero‑fee launch mode.
 """
 
-import pytest
 
 from hyperliquid_bot.bot.hyperliquid import build_order_json
 from hyperliquid_bot.bot.config import Settings
@@ -53,3 +52,4 @@ def test_zero_fee_launch(monkeypatch):
     settings = Settings()
     payload = build_order_json("DOGE", "buy", 10, builder_fee=7, settings=settings)
     assert payload["f"] == 0
+    assert payload.get("zeroFee") is True
