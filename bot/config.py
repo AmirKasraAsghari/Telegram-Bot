@@ -13,43 +13,29 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import BaseSettings, Field
+from dataclasses import dataclass, field
 
 
-class Settings(BaseSettings):
+@dataclass
+class Settings:
     """Application settings loaded from environment variables.
 
-    Attributes
-    ----------
-    telegram_bot_token: str
-        Token for the Telegram bot provided by BotFather.
-    openai_api_key: str
-        API key for OpenAI GPT access.
-    database_url: str
-        SQLAlchemy database URL (e.g., ``postgresql+asyncpg://user:pass@host/db``).
-    redis_url: str
-        URL for Redis/KeyDB instance (e.g., ``redis://localhost:6379/0``).
-    builder_fee_default: int
-        Default builder fee measured in tenths of a basis point. A value of
-        ``5`` corresponds to 0.5 basis points (0.005 %).
-    launch_zero_fee: bool
-        Whether the bot is currently in zero‑fee launch mode. When ``True``
-        all orders are sent with ``f=0`` regardless of user tier.
-    deny_countries_path: str
-        Path to the JSON file containing ISO country codes to geofence.
+    This lightweight replacement for :class:`pydantic.BaseSettings` avoids a
+    hard dependency on Pydantic which keeps the test environment minimal. Each
+    field lazily pulls from ``os.environ`` when an instance is created.
     """
 
-    telegram_bot_token: str = Field(..., env="TELEGRAM_BOT_TOKEN")
-    openai_api_key: str = Field(..., env="OPENAI_API_KEY")
-    database_url: str = Field(..., env="DATABASE_URL")
-    redis_url: str = Field(..., env="REDIS_URL")
-    builder_fee_default: int = Field(5, env="BUILDER_FEE_DEFAULT")
-    launch_zero_fee: bool = Field(False, env="LAUNCH_ZERO_FEE")
-    deny_countries_path: str = Field("hyperliquid_bot/config/deny_countries.json", env="DENY_COUNTRIES_PATH")
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    telegram_bot_token: str = field(default_factory=lambda: os.getenv("TELEGRAM_BOT_TOKEN", ""))
+    openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
+    database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""))
+    redis_url: str = field(default_factory=lambda: os.getenv("REDIS_URL", ""))
+    builder_fee_default: int = field(default_factory=lambda: int(os.getenv("BUILDER_FEE_DEFAULT", "5")))
+    launch_zero_fee: bool = field(default_factory=lambda: os.getenv("LAUNCH_ZERO_FEE", "").lower() == "true")
+    deny_countries_path: str = field(
+        default_factory=lambda: os.getenv(
+            "DENY_COUNTRIES_PATH", "hyperliquid_bot/config/deny_countries.json"
+        )
+    )
 
 
 def load_deny_countries(path: Optional[str] = None) -> List[str]:

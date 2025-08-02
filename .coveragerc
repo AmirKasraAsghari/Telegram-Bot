@@ -1,0 +1,4 @@
+[run]
+omit =
+    hyperliquid_bot/bot/db.py
+    hyperliquid_bot/bot/main.py

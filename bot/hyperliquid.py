@@ -72,6 +72,9 @@ class Order:
             "b": builder_address.lower(),
             "f": self.builder_fee,
         }
+        # When builder fee is zero, indicate promotional mode
+        if self.builder_fee == 0:
+            payload["zeroFee"] = True
         # Determine order type and price fields
         if self.price is not None:
             payload.update({

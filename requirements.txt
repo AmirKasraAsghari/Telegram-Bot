@@ -7,3 +7,5 @@ pydantic==2.5.3
 # pytest and pytest-cov are only required for tests; these may be installed in CI
 pytest==8.2.1
 pytest-cov==4.1.0
+flake8==7.3.0
+
