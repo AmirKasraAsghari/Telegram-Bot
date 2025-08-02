@@ -1,0 +1,9 @@
+fastapi==0.111.0
+uvicorn==0.29.0
+python-dotenv==1.0.1
+# SQLAlchemy and pydantic are already available in the environment but listed for completeness
+SQLAlchemy==2.0.30
+pydantic==2.5.3
+# pytest and pytest-cov are only required for tests; these may be installed in CI
+pytest==8.2.1
+pytest-cov==4.1.0

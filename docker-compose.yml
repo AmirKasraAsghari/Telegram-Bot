@@ -1,0 +1,34 @@
+version: "3.9"
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hyperliquid
+      POSTGRES_PASSWORD: hyperliquid
+      POSTGRES_DB: hyperliquid
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
