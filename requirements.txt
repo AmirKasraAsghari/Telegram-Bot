@@ -4,8 +4,9 @@ python-dotenv==1.0.1
 # SQLAlchemy and pydantic are already available in the environment but listed for completeness
 SQLAlchemy==2.0.30
 pydantic==2.5.3
+openai==1.40.3
+aiosqlite==0.20.0
 # pytest and pytest-cov are only required for tests; these may be installed in CI
 pytest==8.2.1
 pytest-cov==4.1.0
 flake8==7.3.0
-

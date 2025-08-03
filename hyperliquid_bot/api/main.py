@@ -1,12 +1,14 @@
-"""FastAPI service for leaderboard and other REST endpoints.
+"""FastAPI service for leaderboard and sentiment endpoints.
 
-The API exposes endpoints used by the Telegram bot and external clients.
-These include leaderboards, referral management and health checks.
+This application exposes minimal REST endpoints for the Telegram bot and
+related services. Additional routers (e.g. sentiment) are included here.
 """
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+
+from ..sentiment.api import router as sentiment_router
 
 app = FastAPI(title="Hyperliquid Trading Companion API")
 
@@ -25,8 +27,11 @@ async def leaderboard() -> list[dict[str, str]]:
     referral points, sort users and return the top N. Here we return a
     placeholder list for demonstration and testing purposes.
     """
-    # Placeholder data
     return [
         {"user": "alice", "volume": "10000", "points": "100"},
         {"user": "bob", "volume": "7500", "points": "75"},
     ]
+
+
+# Include sentiment router
+app.include_router(sentiment_router)

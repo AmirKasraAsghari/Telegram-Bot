@@ -1,13 +1,14 @@
 # Hyperliquid Trading Companion
 
-[![coverage](https://img.shields.io/badge/coverage-%3E%3D85%25-brightgreen)](#)
+[![coverage](https://img.shields.io/badge/coverage-%3E%3D90%25-brightgreen)](#)
 
-This repository contains a prototype of a Telegram‑first trading companion for the Hyperliquid exchange. It is designed to follow the development plan set out in the product requirements document and provides a foundation for interacting with Hyperliquid via builder codes, natural‑language commands and growth features.
+This repository contains a prototype of a Telegram‑first trading companion for the Hyperliquid exchange. Phase 2 extends the MVP with natural‑language order entry and a sentiment micro‑service.
 
 ## Structure
 
-- `bot/` – Python package containing the Telegram bot implementation. It uses **aiogram** for asynchronous Telegram interactions.
-- `api/` – FastAPI application exposing REST endpoints (e.g. leaderboard).
+- `bot/` – Telegram bot implementation and utilities (includes natural language parser and voice stub).
+- `hyperliquid_bot/api/` – FastAPI application exposing REST endpoints including `/sentiment/{pair}`.
+- `hyperliquid_bot/sentiment/` – Sentiment aggregation job and models.
 - `config/deny_countries.json` – List of ISO country codes to block via geofencing.
 - `requirements.txt` – Python dependencies.
 - `tests/` – Unit tests ensuring core functions behave as expected.
@@ -41,9 +42,21 @@ This repository contains a prototype of a Telegram‑first trading companion for
    uvicorn hyperliquid_bot.api.main:app --reload
    ```
 
-7. For full environment orchestration, use the provided `docker-compose.yml` to start Postgres and Redis alongside the bot and API.
+7. Run the sentiment job manually (normally scheduled hourly):
 
-8. Run the latency test:
+   ```bash
+   python -m hyperliquid_bot.sentiment.job
+   ```
+
+   or launch the worker container:
+
+   ```bash
+   docker compose run --rm sentiment
+   ```
+
+8. For full environment orchestration, use the provided `docker-compose.yml` to start Postgres and Redis alongside the bot, API and sentiment worker.
+
+9. Run the latency test:
 
    ```bash
    pytest -q tests/test_latency.py
@@ -51,8 +64,7 @@ This repository contains a prototype of a Telegram‑first trading companion for
 
 ## Environment Variables
 
-The bot relies on the following environment variables. A convenient way to
-configure them is to create a `.env` file based on `.env.example`.
+The bot relies on the following environment variables. A convenient way to configure them is to create a `.env` file based on `.env.example`.
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
@@ -63,11 +75,19 @@ configure them is to create a `.env` file based on `.env.example`.
 | `BUILDER_FEE_DEFAULT` | Builder fee in tenths of a basis point | `5` |
 | `LAUNCH_ZERO_FEE` | When `true`, override builder fee to zero | `false` |
 | `DENY_COUNTRIES_PATH` | Path to geofence list JSON | `hyperliquid_bot/config/deny_countries.json` |
+| `TOKEN_BUDGET_MONTHLY` | Maximum USD spend for GPT requests before fallback | `200` |
 
 ## Tests
 
-Tests live under the `tests/` directory and can be executed with `pytest`. Coverage is measured using `pytest-cov` and should remain above 85 % to satisfy acceptance criteria. See individual test files for more details.
+Tests live under the `tests/` directory and can be executed with `pytest`. Coverage is measured using `pytest-cov` and should remain above 90 % to satisfy acceptance criteria. See individual test files for more details.
 
 ## Status
 
-This is the initial implementation covering Phase 1 of the roadmap. It includes basic command handling, order JSON generation and placeholder endpoints. Future phases will add natural‑language parsing, sentiment analysis, referral tracking, HIP‑3 pair indexing, strategy generation and revenue‑sharing mechanisms.
+Phase 2 implements:
+
+- Natural‑language order parser with confirmation flow.
+- Voice message transcription stub feeding the parser.
+- Budget guard to switch away from GPT when monthly spend is exceeded.
+- Sentiment aggregation job storing results in Postgres and `/sentiment/{pair}` endpoint.
+
+Future phases will add referral tracking, HIP‑3 pair indexing, strategy generation and revenue‑sharing mechanisms.

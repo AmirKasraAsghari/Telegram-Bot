@@ -8,4 +8,4 @@ def test_coverage_threshold(pytestconfig):
     cov.stop()
     cov.save()
     total = cov.report(file=io.StringIO())
-    assert total >= 85.0, f"Total coverage {total:.2f}% is below 85%"
+    assert total >= 90.0, f"Total coverage {total:.2f}% is below 90%"
