@@ -18,7 +18,7 @@ jobs:
           pip install -r requirements.txt
       - name: Lint with flake8
         run: |
-          python -m flake8 bot tests aiogram hyperliquid_bot
+          python -m flake8 tests aiogram hyperliquid_bot
       - name: Run tests
         run: |
-          pytest -q --cov=hyperliquid_bot --cov=hyperliquid_bot.bot --cov-branch
+          pytest -q --cov=hyperliquid_bot --cov=hyperliquid_bot.sentiment --cov-branch

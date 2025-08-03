@@ -20,6 +20,15 @@ services:
     depends_on:
       - db
       - redis
+  sentiment:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file:
+      - .env
+    command: ["python", "-m", "hyperliquid_bot.sentiment.job"]
+    depends_on:
+      - db
   db:
     image: postgres:16-alpine
     environment:
