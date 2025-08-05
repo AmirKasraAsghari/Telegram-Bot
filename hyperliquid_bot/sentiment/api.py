@@ -6,11 +6,18 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from hyperliquid_bot.bot.db import get_engine
+from hyperliquid_bot.bot.db import get_sessionmaker
 from .models import PairSentiment
 
-engine = get_engine()
-SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+SessionLocal: async_sessionmaker | None = None
+
+
+def _sessionmaker() -> async_sessionmaker:
+    global SessionLocal
+    if SessionLocal is None:
+        SessionLocal = get_sessionmaker()
+    return SessionLocal
+
 
 router = APIRouter()
 
@@ -18,7 +25,8 @@ router = APIRouter()
 @router.get("/sentiment/{pair}")
 async def get_sentiment(pair: str) -> dict:
     """Return latest sentiment for ``pair``."""
-    async with SessionLocal() as session:
+    sessionmaker = _sessionmaker()
+    async with sessionmaker() as session:
         result = await session.execute(
             select(PairSentiment).where(PairSentiment.pair == pair).order_by(PairSentiment.ts.desc())
         )

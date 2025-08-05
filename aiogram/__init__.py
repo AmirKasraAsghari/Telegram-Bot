@@ -41,23 +41,70 @@ class _MessageRegistry:
 
 class Dispatcher:
     """Minimal dispatcher that accepts handler registration and polling."""
+
     def __init__(self) -> None:
         self.message = _MessageRegistry()
+        self.callback_query = _CallbackRegistry()
 
     async def start_polling(self, bot: Bot) -> None:
         # Polling is no‑op in stub
         await asyncio.sleep(0)
 
 
+class _CallbackRegistry:
+    """Simplified registry for callback query handlers."""
+
+    def __init__(self) -> None:
+        self._handlers: list[Callable[..., Any]] = []
+
+    def register(self, handler: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
+        self._handlers.append(handler)
+
+
 class types:  # type: ignore
+    class User:
+        """Minimal user representation used by messages and callbacks."""
+
+        def __init__(self, id: int) -> None:
+            self.id = id
+
     class Message:
         """Represents a Telegram message in the stub."""
-        def __init__(self, text: str = "") -> None:
+
+        def __init__(self, text: str = "", from_user: "types.User" | None = None) -> None:
+            self.text = text
+            self.from_user = from_user or types.User(0)
+
+        async def answer(self, text: str, reply_markup: Any | None = None) -> None:
+            pass
+
+        async def edit_text(self, text: str) -> None:
             self.text = text
 
-        async def answer(self, text: str) -> None:
-            # In tests we might capture answers; for now this is a no‑op.
+    class CallbackQuery:
+        """Stub for callback queries."""
+
+        def __init__(
+            self,
+            data: str,
+            message: "types.Message",
+            from_user: "types.User" | None = None,
+        ) -> None:
+            self.data = data
+            self.message = message
+            self.from_user = from_user or message.from_user
+
+        async def answer(self) -> None:  # pragma: no cover - no logic
             pass
+
+    class InlineKeyboardButton:
+        def __init__(self, text: str, callback_data: str) -> None:
+            self.text = text
+            self.callback_data = callback_data
+
+    class InlineKeyboardMarkup:
+        def __init__(self, inline_keyboard: Any) -> None:
+            self.inline_keyboard = inline_keyboard
 
     class CommandObject:
         """Placeholder for aiogram CommandObject."""
