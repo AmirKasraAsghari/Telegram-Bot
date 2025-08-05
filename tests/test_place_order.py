@@ -5,6 +5,8 @@ according to provided parameters and respects zero‑fee launch mode.
 """
 
 
+from datetime import datetime, timedelta, timezone
+
 from hyperliquid_bot.bot.hyperliquid import build_order_json
 from hyperliquid_bot.bot.config import Settings
 
@@ -17,7 +19,7 @@ def test_build_market_order_default_fee(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
     # Set default builder fee to 5
-    monkeypatch.setenv("BUILDER_FEE_DEFAULT", "5")
+    monkeypatch.setenv("BUILDER_FEE_TENTH_BPS", "5")
     settings = Settings()
     payload = build_order_json("ETH", "buy", 1.5, settings=settings)
     assert payload["type"] == "order"
@@ -26,6 +28,7 @@ def test_build_market_order_default_fee(monkeypatch):
     assert payload["sz"] == "1.5"
     assert payload["b"] == "0xbuilder"
     assert payload["f"] == 5
+    assert payload["leverage"] == 10
 
 
 def test_build_limit_order_override_fee(monkeypatch):
@@ -48,7 +51,8 @@ def test_zero_fee_launch(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
     monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
-    monkeypatch.setenv("LAUNCH_ZERO_FEE", "true")
+    future = datetime.now(timezone.utc) + timedelta(days=1)
+    monkeypatch.setenv("ZERO_FEE_UNTIL", future.isoformat())
     settings = Settings()
     payload = build_order_json("DOGE", "buy", 10, builder_fee=7, settings=settings)
     assert payload["f"] == 0

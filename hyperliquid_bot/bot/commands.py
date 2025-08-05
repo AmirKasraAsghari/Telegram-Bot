@@ -9,6 +9,7 @@ would occur in production.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Optional
 
@@ -17,6 +18,14 @@ from aiogram.filters import CommandStart, CommandObject
 
 from .config import load_deny_countries
 from .hyperliquid import build_order_json
+from .db import (
+    Base,
+    Trade,
+    get_engine,
+    get_or_create_user,
+    get_sessionmaker,
+)
+from ..api.metrics import inc_orders
 
 
 logger = logging.getLogger(__name__)
@@ -84,11 +93,19 @@ async def buy_sell_handler(message: types.Message, side: str) -> None:
         except ValueError:
             await message.answer("Invalid leverage; please provide an integer.")
             return
-    # Build order payload
-    payload = build_order_json(symbol=symbol, side=side, size=size, price=price, leverage=leverage)
-    # Show preview to user
+    payload = build_order_json(
+        symbol=symbol, side=side, size=size, price=price, leverage=leverage
+    )
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(text="✅ Place", callback_data="confirm"),
+                types.InlineKeyboardButton(text="❌ Cancel", callback_data="cancel"),
+            ]
+        ]
+    )
     await message.answer(
-        f"Order preview:\n{payload}\n\nReply 'yes' to confirm or 'no' to cancel."
+        f"Order preview:\n{json.dumps(payload)}", reply_markup=keyboard
     )
 
 
@@ -116,6 +133,50 @@ async def cancel_handler(message: types.Message) -> None:
         await message.answer("Cancelled all open orders.")
 
 
+async def price_handler(message: types.Message) -> None:
+    """Handle the /price command."""
+
+    parts = message.text.strip().split()
+    if len(parts) < 2:
+        await message.answer("Usage: /price SYMBOL")
+        return
+    symbol = parts[1].upper()
+    await message.answer(f"{symbol} price is 0 (stub)")
+
+
+async def order_callback_handler(callback: types.CallbackQuery) -> None:
+    """Handle confirm/cancel buttons for orders."""
+
+    if callback.data == "confirm":
+        # Parse order payload from the message text
+        payload = {}
+        try:
+            _, raw = callback.message.text.split("\n", 1)
+            payload = json.loads(raw)
+        except Exception:
+            pass
+
+        engine = get_engine()
+        sessionmaker = get_sessionmaker()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        async with sessionmaker() as session:
+            user = await get_or_create_user(session, callback.from_user.id)
+            trade = Trade(
+                user_id=user.id,
+                symbol=payload.get("coin", ""),
+                side="buy" if payload.get("isBuy") else "sell",
+                size=float(payload.get("sz", "0")),
+            )
+            session.add(trade)
+            await session.commit()
+        inc_orders()
+        await callback.message.edit_text("Order submitted!")
+    else:
+        await callback.message.edit_text("Order cancelled.")
+    await callback.answer()
+
+
 async def setup_bot(bot: Bot, dispatcher: Dispatcher) -> None:
     """Register handlers with the dispatcher.
 
@@ -136,3 +197,5 @@ async def setup_bot(bot: Bot, dispatcher: Dispatcher) -> None:
     # Positions and cancel commands
     dispatcher.message.register(positions_handler, commands={"positions"})
     dispatcher.message.register(cancel_handler, commands={"cancel"})
+    dispatcher.message.register(price_handler, commands={"price"})
+    dispatcher.callback_query.register(order_callback_handler)

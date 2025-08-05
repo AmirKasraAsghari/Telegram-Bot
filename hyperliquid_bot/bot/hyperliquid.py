@@ -17,7 +17,10 @@ Notes
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Deque, Dict, Optional
+from collections import deque
+import time
+from datetime import datetime, timezone
 
 from .config import Settings
 
@@ -86,6 +89,29 @@ class Order:
         return payload
 
 
+_error_times: Deque[float] = deque()
+_paused_until: float = 0.0
+
+
+def record_api_error(now: Optional[float] = None) -> None:
+    """Record a failed API call and trip circuit breaker after 3 in 60 s."""
+
+    global _paused_until
+    now = now or time.monotonic()
+    _error_times.append(now)
+    while _error_times and now - _error_times[0] > 60:
+        _error_times.popleft()
+    if len(_error_times) >= 3:
+        _paused_until = now + 300
+
+
+def is_paused(now: Optional[float] = None) -> bool:
+    """Return ``True`` if trading is currently paused."""
+
+    now = now or time.monotonic()
+    return now < _paused_until
+
+
 def build_order_json(
     symbol: str,
     side: str,
@@ -124,10 +150,10 @@ def build_order_json(
         Payload dictionary for the exchange.
     """
     s = settings or Settings()
-    fee = builder_fee if builder_fee is not None else s.builder_fee_default
-    # If launch_zero_fee is true, override to zero
-    if s.launch_zero_fee:
+    fee = builder_fee if builder_fee is not None else s.builder_fee_tenth_bps
+    if s.zero_fee_until and datetime.now(timezone.utc) < s.zero_fee_until:
         fee = 0
+    leverage = leverage if leverage is not None else 10
     order = Order(
         symbol=symbol,
         side=side,

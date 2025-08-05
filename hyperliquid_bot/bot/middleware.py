@@ -13,6 +13,8 @@ import time
 from typing import Any, Awaitable, Callable, Dict
 
 
+from ..api.metrics import observe_latency
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,4 +38,5 @@ class ExecutionTimeMiddleware:
         duration = time.perf_counter() - start
         data["execution_time"] = duration
         logger.info("%s handled in %.4f seconds", getattr(handler, "__name__", str(handler)), duration)
+        observe_latency(duration * 1000)
         return result

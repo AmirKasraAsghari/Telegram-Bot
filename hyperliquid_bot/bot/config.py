@@ -1,17 +1,18 @@
 """Configuration loader for the trading bot.
 
-This module loads environment variables and geofence lists. It provides
-defaults for builder fee and other settings. The geofence list is stored in
-JSON format under ``config/deny_countries.json``. Users from these ISO
-country codes should be blocked from interacting with the bot.
+Environment variables are used for all runtime configuration.  The most
+important ones are ``BUILDER_FEE_TENTH_BPS`` (fee in tenths of a basis point),
+``ZERO_FEE_UNTIL`` (ISO timestamp for launch promotions) and
+``DENY_COUNTRIES_URL`` pointing to a JSON/CSV deny‑list for geofencing.
 """
 
 from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+from datetime import datetime
 from typing import List, Optional
+from urllib.request import urlopen
 
 from dataclasses import dataclass, field
 
@@ -29,38 +30,49 @@ class Settings:
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
     database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""))
     redis_url: str = field(default_factory=lambda: os.getenv("REDIS_URL", ""))
-    builder_fee_default: int = field(default_factory=lambda: int(os.getenv("BUILDER_FEE_DEFAULT", "5")))
-    launch_zero_fee: bool = field(default_factory=lambda: os.getenv("LAUNCH_ZERO_FEE", "").lower() == "true")
-    deny_countries_path: str = field(
-        default_factory=lambda: os.getenv(
-            "DENY_COUNTRIES_PATH", "hyperliquid_bot/config/deny_countries.json"
+    builder_fee_tenth_bps: int = field(
+        default_factory=lambda: int(os.getenv("BUILDER_FEE_TENTH_BPS", "1"))
+    )
+    zero_fee_until: Optional[datetime] = field(
+        default_factory=lambda: (
+            datetime.fromisoformat(os.getenv("ZERO_FEE_UNTIL", ""))
+            if os.getenv("ZERO_FEE_UNTIL")
+            else None
         )
+    )
+    token_budget_monthly: int = field(
+        default_factory=lambda: int(os.getenv("TOKEN_BUDGET_MONTHLY", "200"))
+    )
+    voice_enabled: bool = field(
+        default_factory=lambda: os.getenv("VOICE_ENABLED", "").lower() == "true"
+    )
+    deny_countries_url: str = field(
+        default_factory=lambda: os.getenv("DENY_COUNTRIES_URL", "")
     )
 
 
-def load_deny_countries(path: Optional[str] = None) -> List[str]:
-    """Load ISO country codes from the deny_countries JSON file.
+def load_deny_countries(url: Optional[str] = None) -> List[str]:
+    """Fetch ISO country codes from a JSON or CSV deny‑list URL.
 
-    Parameters
-    ----------
-    path: Optional[str]
-        Optional path to the JSON file. If ``None``, uses the path from
-        Settings.deny_countries_path.
-
-    Returns
-    -------
-    List[str]
-        A list of ISO 3166-1 alpha-2 country codes that should be blocked.
+    The helper supports HTTP(S) and ``file://`` URLs so tests can provide a
+    temporary file.  CSV files are expected to contain comma‑separated country
+    codes.  Invalid or unreachable URLs simply result in an empty list.
     """
+
     settings = Settings()
-    file_path = Path(path or settings.deny_countries_path)
-    if not file_path.exists():
+    source = url or settings.deny_countries_url
+    if not source:
         return []
     try:
-        with file_path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, list):
-            return [c.upper() for c in data if isinstance(c, str)]
-        raise ValueError("deny_countries.json must be a list of country codes")
+        with urlopen(source) as fh:  # nosec - controlled input in tests
+            raw = fh.read().decode("utf-8")
     except Exception:
         return []
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            return [c.upper() for c in data if isinstance(c, str)]
+    except Exception:
+        pass
+    # Fallback to CSV parsing
+    return [c.strip().upper() for c in raw.split(",") if c.strip()]
