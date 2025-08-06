@@ -7,6 +7,7 @@ from hyperliquid_bot.bot.commands import (
 )
 from hyperliquid_bot.bot.middleware import ExecutionTimeMiddleware
 from aiogram import types
+from hyperliquid_bot.bot import hyperliquid
 
 
 class DummyMessage(types.Message):
@@ -50,6 +51,7 @@ def set_env(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "o")
     monkeypatch.setenv("DATABASE_URL", "sqlite://")
     monkeypatch.setenv("REDIS_URL", "redis://")
+    hyperliquid.reset_breaker()
 
 
 def test_start_handler(monkeypatch):
@@ -92,4 +94,13 @@ def test_buy_sell_handler_success(monkeypatch):
     msg = DummyMessage("/buy ETH 1 2 3")
     asyncio.run(buy_sell_handler(msg, "buy"))
     assert "Order preview" in msg.replies[-1]
+
+
+def test_buy_sell_handler_paused(monkeypatch):
+    set_env(monkeypatch)
+    for _ in range(3):
+        hyperliquid.record_api_error()
+    msg = DummyMessage("/buy ETH 1 2 3")
+    asyncio.run(buy_sell_handler(msg, "buy"))
+    assert "paused" in msg.replies[-1].lower()
 

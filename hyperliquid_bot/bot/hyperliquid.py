@@ -16,10 +16,51 @@ Notes
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from .config import Settings
+
+
+logger = logging.getLogger(__name__)
+
+# --- Circuit breaker state -------------------------------------------------
+
+_error_count = 0
+_paused = False
+_alert_callback: Optional[Callable[[str], None]] = None
+_ERROR_THRESHOLD = 3
+
+
+def set_alert_callback(cb: Callable[[str], None]) -> None:
+    """Register a callback invoked when the breaker trips."""
+    global _alert_callback
+    _alert_callback = cb
+
+
+def is_paused() -> bool:
+    """Return whether trading has been paused due to errors."""
+    return _paused
+
+
+def record_api_error() -> None:
+    """Record an API error and trip the breaker if threshold exceeded."""
+    global _error_count, _paused
+    _error_count += 1
+    if _error_count >= _ERROR_THRESHOLD and not _paused:
+        _paused = True
+        message = "Hyperliquid API error threshold exceeded; pausing trading."
+        logger.error(message)
+        if _alert_callback:
+            _alert_callback(message)
+
+
+def reset_breaker() -> None:
+    """Reset breaker state for testing or manual recovery."""
+    global _error_count, _paused
+    _error_count = 0
+    _paused = False
 
 
 @dataclass

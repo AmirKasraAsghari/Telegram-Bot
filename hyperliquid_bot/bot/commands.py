@@ -16,7 +16,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart, CommandObject
 
 from .config import load_deny_countries
-from .hyperliquid import build_order_json
+from . import hyperliquid
 
 
 logger = logging.getLogger(__name__)
@@ -84,8 +84,15 @@ async def buy_sell_handler(message: types.Message, side: str) -> None:
         except ValueError:
             await message.answer("Invalid leverage; please provide an integer.")
             return
+    if hyperliquid.is_paused():
+        await message.answer(
+            "Trading is temporarily paused due to earlier errors. Please try again later."
+        )
+        return
     # Build order payload
-    payload = build_order_json(symbol=symbol, side=side, size=size, price=price, leverage=leverage)
+    payload = hyperliquid.build_order_json(
+        symbol=symbol, side=side, size=size, price=price, leverage=leverage
+    )
     # Show preview to user
     await message.answer(
         f"Order preview:\n{payload}\n\nReply 'yes' to confirm or 'no' to cancel."
